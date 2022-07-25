@@ -1,4 +1,4 @@
-const { pick, mapKeys, omitBy, isEmpty } = require('lodash');
+const { pick, omitBy, isEmpty } = require('lodash');
 
 const createBaseRequest = require('./create-base-request.js');
 const sendRequest = require('./send-request.js');
@@ -9,9 +9,11 @@ const sendRequest = require('./send-request.js');
  * @param {Object} params Function params.
  * @param {number} params.page Integer page to query.
  * @param {string} params.invoiceDirection outbound or inbound request type.
- * @param {Object} params.queryParams Query multiple invoices with params.
- * @param {string} queryParams.dateFrom - REQUIRED valid date string to search from
+ * @param {Object} params.queryParams Query multiple invoices with params. Use dateFrom/dateTo (invoiceIssueDate) or dateTimeFrom/dateTimeTo (insDate) but not both!
+ * @param {string} queryParams.dateFrom - REQUIRED valid date string to search from (2010-01-01)
  * @param {string} queryParams.dateTo - REQUIRED valid date string to search to
+ * @param {string} queryParams.dateTimeFrom - REQUIRED UTC date time string to search from (2010-01-01T00:00:00Z)
+ * @param {string} queryParams.dateTimeTo - REQUIRED UTC date time string to search to
  * @param {string} queryParams.taxNumber - OPTIONAL Tax number of the invoice supplier or customer
  * @param {string} queryParams.groupMemberTaxNumber - OPTIONAL Tax number of group member for the invoice supplier or customer
  * @param {string} queryParams.name - OPTIONAL Left side text matching for the invoice supplier or customer search parameter
@@ -42,14 +44,19 @@ module.exports = async function queryInvoiceDigest({
     softwareData,
   });
 
+  const mandatoryQueryParams = {};
+  if (queryParams.dateTimeFrom && queryParams.dateTimeTo) {
+    mandatoryQueryParams.insDate = pick(queryParams, ['dateTimeFrom', 'dateTimeTo']);
+  } else {
+    mandatoryQueryParams.invoiceIssueDate = pick(queryParams, ['dateFrom', 'dateTo']);
+  }
+
   /* Normalize queryParams key order. */
   Object.assign(request.QueryInvoiceDigestRequest, {
     page,
     invoiceDirection,
     invoiceQueryParams: {
-      mandatoryQueryParams: {
-        invoiceIssueDate: pick(queryParams, ['dateFrom', 'dateTo']),
-      },
+      mandatoryQueryParams,
       additionalQueryParams: pick(queryParams, [
         'taxNumber',
         'groupMemberTaxNumber',
